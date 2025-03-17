@@ -1,0 +1,14 @@
+
+services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-CU16-ubuntu-22.04
+    container_name: mssql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Test1234" # SA password
+    ports:
+      - "1433:1433"
+    # volumes:
+    #   - D:/mssql/data:/var/opt/mssql/data
+    #   - D:/mssql/log:/var/opt/mssql/log
+    #   - D:/mssql/secrets:/var/opt/mssql/secrets
