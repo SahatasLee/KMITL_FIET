@@ -8,7 +8,15 @@ services:
       MSSQL_SA_PASSWORD: "Test1234" # SA password
     ports:
       - "1433:1433"
-    # volumes:
-    #   - D:/mssql/data:/var/opt/mssql/data
-    #   - D:/mssql/log:/var/opt/mssql/log
-    #   - D:/mssql/secrets:/var/opt/mssql/secrets
+    volumes:
+      - D:/mssql/data:/var/opt/mssql/data
+      - D:/mssql/log:/var/opt/mssql/log
+      - D:/mssql/secrets:/var/opt/mssql/secrets
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "1.5"
+        reservations:
+          memory: 256M
+          cpus: "0.5"

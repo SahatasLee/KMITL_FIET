@@ -6,9 +6,16 @@ import (
 	"os"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/joho/godotenv"
+	_ "github.com/microsoft/go-mssqldb"
 )
 
 func DatabaseInit() *sqlx.DB {
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("Warning loading .env file")
+	}
+
 	// database connection
 	user := os.Getenv("DB_USER")
 	password := os.Getenv("DB_PASSWORD")
