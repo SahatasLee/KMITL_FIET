@@ -36,5 +36,16 @@ docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=<password>" ^
 
 docker exec -it sql1 "bash"
 
+# https://learn.microsoft.com/en-us/sql/linux/quickstart-install-connect-docker?view=sql-server-ver16&tabs=cli&pivots=cs1-bash
 /opt/mssql-tools18/bin/sqlcmd -S localhost -U "sa" -P "Test1234" -C
+```
+
+## DOTENV
+
+```sh
+DB_USER="sa"
+DB_PASSWORD="Test1234"
+DB_SERVER="localhost"
+DB_PORT="1433"
+DB_DATABASE="test"
 ```
