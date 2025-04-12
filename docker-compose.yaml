@@ -9,9 +9,14 @@ services:
     ports:
       - "1433:1433"
     volumes:
-      - D:/mssql/data:/var/opt/mssql/data
-      - D:/mssql/log:/var/opt/mssql/log
-      - D:/mssql/secrets:/var/opt/mssql/secrets
+      # For Windows, uncomment the following lines and comment the lines below
+      # - D:/mssql/data:/var/opt/mssql/data
+      # - D:/mssql/log:/var/opt/mssql/log
+      # - D:/mssql/secrets:/var/opt/mssql/secrets
+      # For MacOS, uncomment the following lines and comment the lines above
+      - /Users/sahatas/mssql/data:/var/opt/mssql/data
+      - /Users/sahatas/mssql/log:/var/opt/mssql/log
+      - /Users/sahatas/mssql/secrets:/var/opt/mssql/secrets
     deploy:
       resources:
         limits:
