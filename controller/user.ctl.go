@@ -13,6 +13,36 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+func FixUUIDFromSQLServer(b []byte) uuid.UUID {
+	if len(b) != 16 {
+		return uuid.Nil
+	}
+	// Reverse byte order for first 3 fields
+	copy := make([]byte, 16)
+	copy[0] = b[3]
+	copy[1] = b[2]
+	copy[2] = b[1]
+	copy[3] = b[0]
+
+	copy[4] = b[5]
+	copy[5] = b[4]
+
+	copy[6] = b[7]
+	copy[7] = b[6]
+
+	copy[8] = b[8]
+	copy[9] = b[9]
+	copy[10] = b[10]
+	copy[11] = b[11]
+	copy[12] = b[12]
+	copy[13] = b[13]
+	copy[14] = b[14]
+	copy[15] = b[15]
+
+	u, _ := uuid.FromBytes(copy)
+	return u
+}
+
 func (db *DBController) CreateUser(c *gin.Context) {
 	var req struct {
 		Email    string `json:"email" binding:"required,email"`
@@ -136,8 +166,11 @@ func (db *DBController) Login(c *gin.Context) {
 		return
 	}
 
+	uuid := FixUUIDFromSQLServer(user.UUID)
+
+	fmt.Printf("Extracted UUID from JWT: %v (%T)\n", uuid, uuid)
 	// Success response (excluding password)
-	token, err := auth.GenerateToken(user.UUID) // assume user ID is 1
+	token, err := auth.GenerateToken(uuid.String())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Token generation failed"})
 		return
@@ -146,9 +179,13 @@ func (db *DBController) Login(c *gin.Context) {
 }
 
 // Get all users
+// TODO: Implement pagination and filtering
 func (db *DBController) GetUsers(c *gin.Context) {
-	var users []model.User
-	query := "SELECT id, name, age FROM users"
+	var users []model.PublicUser
+	query := `
+	SELECT uuid, name, email, age, created_at, updated_at
+	FROM users
+	`
 
 	err := db.Database.SelectContext(c.Request.Context(), &users, query)
 	if err != nil {
@@ -161,12 +198,28 @@ func (db *DBController) GetUsers(c *gin.Context) {
 	c.JSON(http.StatusOK, users)
 }
 
-// Get user by ID
+// Get user from JWT UUID
 func (db *DBController) GetUserByID(c *gin.Context) {
-	id := c.Param("id")
-	query := "SELECT id, name, age FROM users WHERE id=:id"
+	// Extract user UUID from JWT claims (set by middleware)
+	userUUIDVal, exists := c.Get("user_uuid")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User UUID not found in token"})
+		return
+	}
 
-	var user model.User
+	userUUID, ok := userUUIDVal.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid UUID format"})
+		return
+	}
+
+	query := `
+	SELECT uuid, name, email, age, created_at, updated_at
+	FROM users
+	WHERE uuid = :uuid
+	`
+
+	var user model.PublicUser
 	stmt, err := db.Database.PrepareNamed(query)
 	if err != nil {
 		log.Println("Error preparing query:", err)
@@ -175,15 +228,14 @@ func (db *DBController) GetUserByID(c *gin.Context) {
 	}
 	defer stmt.Close()
 
-	// Execute the query
-	err = stmt.Get(&user, map[string]interface{}{"id": id})
+	// Execute query using UUID
+	err = stmt.Get(&user, map[string]interface{}{"uuid": userUUID})
 	if err != nil {
-		log.Println("Error fetching user:", err)
+		log.Println("Error fetching user by UUID:", err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
 
-	// Send the user details as a response
 	c.JSON(http.StatusOK, user)
 }
 

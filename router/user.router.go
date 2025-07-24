@@ -20,8 +20,8 @@ func SetUserRoutes(router *gin.RouterGroup, db *sqlx.DB) {
 	protected.Use(middleware.JWTAuthMiddleware())
 	{
 		protected.GET("/users", ctls.GetUsers)
-		protected.GET("/users/:id", ctls.GetUserByID)
-		protected.PATCH("/users/:id", ctls.UpdateUser)
-		protected.DELETE("/users/:id", ctls.DeleteUserByID)
+		protected.GET("/user", ctls.GetUserByID)
+		protected.PATCH("/user", ctls.UpdateUser)
+		protected.DELETE("/user", ctls.DeleteUserByID)
 	}
 }
