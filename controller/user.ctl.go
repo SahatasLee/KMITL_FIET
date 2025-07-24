@@ -1,13 +1,149 @@
 package controller
 
 import (
+	"database/sql"
+	"fiet/auth"
 	"fiet/model"
 	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
+
+func (db *DBController) CreateUser(c *gin.Context) {
+	var req struct {
+		Email    string `json:"email" binding:"required,email"`
+		Password string `json:"password" binding:"required"`
+	}
+
+	// Bind JSON with validation
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input", "details": err.Error()})
+		return
+	}
+
+	// Validate required fields manually if needed
+	if req.Email == "" || req.Password == "" {
+		fmt.Println(req.Email, req.Password)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Name, email, and password are required"})
+		return
+	}
+
+	// Check if user already exists
+	query := "SELECT id FROM users WHERE email = :email"
+
+	stmt, err := db.Database.PrepareNamed(query)
+	if err != nil {
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Query preparation failed"})
+		return
+	}
+	defer stmt.Close()
+
+	var existingID int
+	err = stmt.Get(&existingID, gin.H{"email": req.Email})
+
+	if err == nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "User already exists"})
+		return
+	} else if err != sql.ErrNoRows {
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+
+	// Generate UUID
+	newUUID := uuid.New().String()
+
+	// Hash password securely (bcrypt)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Password hashing failed"})
+		return
+	}
+
+	// Insert query with named params
+	query = `
+		INSERT INTO users (uuid, name, email, age, password_hash)
+		OUTPUT INSERTED.id
+		VALUES (:uuid, :name, :email, :age, :password_hash)
+	`
+
+	// Prepare statement
+	stmt, err = db.Database.PrepareNamed(query)
+	if err != nil {
+		c.Error(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Query preparation failed"})
+		return
+	}
+	defer stmt.Close()
+
+	// Params to bind
+	params := map[string]interface{}{
+		"uuid":          newUUID,
+		"email":         req.Email,
+		"password_hash": string(hashedPassword),
+	}
+
+	// Execute and fetch new ID
+	var id int
+	if err := stmt.Get(&id, params); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "User creation failed"})
+		c.Error(err)
+		// log.Println("DB Error:", err)
+		return
+	}
+
+	// Success response
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "User created",
+	})
+}
+
+func (db *DBController) Login(c *gin.Context) {
+	var req struct {
+		Email    string `json:"email" binding:"required,email"`
+		Password string `json:"password" binding:"required"`
+	}
+
+	// Bind JSON with validation
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input", "details": err.Error()})
+		return
+	}
+
+	// Fetch user by email
+	var user model.User
+	query := "SELECT id, uuid, name, email, password_hash FROM users WHERE email = :email"
+	stmt, err := db.Database.PrepareNamed(query)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Query preparation failed"})
+		return
+	}
+	defer stmt.Close()
+
+	if err := stmt.Get(&user, map[string]interface{}{"email": req.Email}); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+		return
+	}
+
+	// Compare hashed password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+		return
+	}
+
+	// Success response (excluding password)
+	token, err := auth.GenerateToken(user.UUID) // assume user ID is 1
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Token generation failed"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"token": token})
+}
 
 // Get all users
 func (db *DBController) GetUsers(c *gin.Context) {
@@ -49,42 +185,6 @@ func (db *DBController) GetUserByID(c *gin.Context) {
 
 	// Send the user details as a response
 	c.JSON(http.StatusOK, user)
-}
-
-// Create a new user
-func (db *DBController) CreateUser(c *gin.Context) {
-	var user model.User
-
-	// Bind JSON request to struct
-	if err := c.Bind(&user); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	query := "INSERT INTO users (name, age) OUTPUT INSERTED.id VALUES (:name, :age)"
-
-	// Prepare query
-	stmt, err := db.Database.PrepareNamed(query)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to prepare query"})
-		return
-	}
-	defer stmt.Close()
-
-	// Execute query and get the inserted ID
-	var id int64
-	err = stmt.Get(&id, user)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to insert user"})
-		fmt.Println("Insert Error:", err)
-		return
-	}
-
-	// Send success response
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "User created successfully",
-		"id":      id,
-	})
 }
 
 // Update user by ID

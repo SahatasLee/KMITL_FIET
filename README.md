@@ -4,7 +4,7 @@
 
 ```sh
 # go version
-go version go1.23.4 windows/amd64
+go version go1.24.5
 
 # init
 go mod init fiet
@@ -14,8 +14,10 @@ go mod tidy
 
 # install gin
 # https://gin-gonic.com/docs/quickstart/
-# require github.com/gin-gonic/gin v1.10.0
-go get -u github.com/gin-gonic/gin@v1.10.0
+go get -u github.com/gin-gonic/gin@v1.10.1
+
+# run
+go run .
 ```
 
 ## Setup MSSQL
@@ -38,9 +40,11 @@ docker exec -it sql1 "bash"
 
 # https://learn.microsoft.com/en-us/sql/linux/quickstart-install-connect-docker?view=sql-server-ver16&tabs=cli&pivots=cs1-bash
 /opt/mssql-tools18/bin/sqlcmd -S localhost -U "sa" -P "Test1234" -C
+
+/opt/mssql-tools18/bin/sqlcmd -S localhost -U "sa" -P "Test1234" -Q "SELECT name FROM sys.databases;" -C
 ```
 
-## DOTENV
+## ENV
 
 ```sh
 DB_USER="sa"
@@ -63,4 +67,45 @@ DB_DATABASE="test"
 ├── model/                    # Structs and DB models
 ├── router/                   # Route definitions
 ├── service/                  # Business logic / JWT svc
+```
+
+## Database Library
+
+1. https://jmoiron.github.io/sqlx/
+
+Database fiet
+
+User permission
+
+```sh
+-- 1. Create login at server level
+CREATE LOGIN fiet_user WITH PASSWORD = 'StrongP@ssw0rd';
+
+-- 2. Switch to your application database
+USE fiet;
+
+-- 3. Create user in the database mapped to the login
+CREATE USER fiet_user FOR LOGIN fiet_user;
+
+-- 4. Grant permissions (basic CRUD access)
+EXEC sp_addrolemember 'db_datareader', 'fiet_user'; -- SELECT
+EXEC sp_addrolemember 'db_datawriter', 'fiet_user'; -- INSERT, UPDATE, DELETE
+
+-- Optional: grant execute for stored procedures
+-- GRANT EXECUTE TO fiet_user;
+```
+
+CREATE USERS
+
+```sh
+CREATE TABLE users (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    uuid UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(), -- public identifier
+    name NVARCHAR(100) NOT NULL,
+    email NVARCHAR(100) NOT NULL UNIQUE,
+    age INT CHECK (age >= 0 AND age <= 150),
+    password_hash NVARCHAR(255) NOT NULL,
+    created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+    updated_at DATETIME2 NOT NULL DEFAULT SYSDATETIME()
+);
 ```
