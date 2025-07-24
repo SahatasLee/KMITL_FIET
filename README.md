@@ -49,3 +49,18 @@ DB_SERVER="localhost"
 DB_PORT="1433"
 DB_DATABASE="test"
 ```
+
+## Tree
+
+```sh
+├── main.go                    # Entry point
+├── go.mod / go.sum           # Go modules
+├── docker-compose.yaml       # Container orchestration
+├── README.md
+├── controller/               # Controllers (handlers)
+├── database/                 # DB init/setup
+├── middleware/               # Gin middleware
+├── model/                    # Structs and DB models
+├── router/                   # Route definitions
+├── service/                  # Business logic / JWT svc
+```

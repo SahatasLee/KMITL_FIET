@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fiet/config"
 	db "fiet/database"
 	"fiet/router"
 	"net/http"
@@ -9,6 +10,10 @@ import (
 )
 
 func main() {
+	// Load environment variables from .env file
+	config.LoadConfig()
+
+	// Initialize the database connection
 	db := db.DatabaseInit()
 
 	r := gin.Default()
@@ -21,5 +26,5 @@ func main() {
 	})
 	api := r.Group("/api/v1")
 	router.SetUserRoutes(api, db)
-	r.Run(":80") // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+	r.Run(":8080") // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
