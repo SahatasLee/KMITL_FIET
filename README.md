@@ -4,9 +4,10 @@ TODO
 
 - [x] Login
 - [x] Register
-- [ ] Update user
+- [X] Update user
 - [ ] Delete user
 - [ ] Change password
+- [X] API Docs (gin-swagger)
 
 ## Setup Go
 
@@ -60,6 +61,7 @@ DB_PASSWORD="Test1234"
 DB_SERVER="localhost"
 DB_PORT="1433"
 DB_DATABASE="test"
+JWT_SECRET="your_jwt_secret"
 ```
 
 ## Tree
@@ -74,7 +76,6 @@ DB_DATABASE="test"
 ├── middleware/               # Gin middleware
 ├── model/                    # Structs and DB models
 ├── router/                   # Route definitions
-├── service/                  # Business logic / JWT svc
 ```
 
 ## Database Library

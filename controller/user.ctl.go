@@ -14,6 +14,17 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// @Summary      Create User
+// @Description  Create a new user
+// @Tags         user
+// @Accept       json
+// @Produce      json
+// @Param        credentials  body     model.Credential  true  "User Credentials"
+// @Success      201  {string}  "User created successfully"
+// @Failure      400  {string}  model.ErrorResponse
+// @Failure      409  {string}  "User already exists"
+// @Failure      500  {string}  model.ErrorResponse
+// @Router       /register [post]
 func (db *DBController) CreateUser(c *gin.Context) {
 	var req struct {
 		Email    string `json:"email" binding:"required,email"`
@@ -104,6 +115,18 @@ func (db *DBController) CreateUser(c *gin.Context) {
 	})
 }
 
+// Login user
+// @Summary      Login User
+// @Description  Authenticate user and return JWT token
+// @Tags         user
+// @Accept       json
+// @Produce      json
+// @Param        credentials  body     model.Credential  true  "User Credentials"
+// @Success	  	 200  {object}	model.TokenResponse "Successful login"
+// @Failure      400  {string}  "Invalid input"
+// @Failure      401  {string}  "Invalid email or password"
+// @Failure      500  {string}  "Internal server error"
+// @Router       /login [post]
 func (db *DBController) Login(c *gin.Context) {
 	var req struct {
 		Email    string `json:"email" binding:"required,email"`
@@ -154,6 +177,15 @@ func (db *DBController) Login(c *gin.Context) {
 
 // Get all users
 // TODO: Implement pagination and filtering
+// @Summary      Get Users
+// @Description  Retrieve all users
+// @Tags         user
+// @Accept       json
+// @Produce      json
+// @Success      200  {array}   model.PublicUser
+// @Failure      500  {string}  "Internal server error"
+// @Router       /users [get]
+// @Security 	 BearerAuth
 func (db *DBController) GetUsers(c *gin.Context) {
 	var users []model.PublicUser
 	query := `
@@ -173,6 +205,17 @@ func (db *DBController) GetUsers(c *gin.Context) {
 }
 
 // Get user from JWT UUID
+// @Summary      Get User by UUID
+// @Description  Retrieve user details by UUID from JWT
+// @Tags         user
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  model.PublicUser
+// @Failure      401  {string}  "Unauthorized"
+// @Failure      404  {string}  "User not found"
+// @Failure      500  {string}  "Internal server error"
+// @Router       /user [get]
+// @Security 	 BearerAuth
 func (db *DBController) GetUserByID(c *gin.Context) {
 	// Extract user UUID from JWT claims (set by middleware)
 	userUUIDVal, exists := c.Get("user_uuid")
@@ -214,6 +257,19 @@ func (db *DBController) GetUserByID(c *gin.Context) {
 }
 
 // Update user by UUID from JWT
+// @Summary      Update User
+// @Description  Update user details by UUID from JWT
+// @Tags         user
+// @Accept       json
+// @Produce      json
+// @Param        user  body     model.PublicUser true  "User details to update"
+// @Success      200  {string}  "User updated successfully"
+// @Failure      400  {string}  "Invalid request data"
+// @Failure      401  {string}  "Unauthorized"
+// @Failure      404  {string}  "User not found"
+// @Failure      500  {string}  "Failed to update user"
+// @Router       /user [patch]
+// @Security 	 BearerAuth
 func (db *DBController) UpdateUser(c *gin.Context) {
 	// Extract user UUID from JWT
 	userUUIDVal, exists := c.Get("user_uuid")
@@ -303,12 +359,13 @@ func (db *DBController) DeleteUserByID(c *gin.Context) {
 }
 
 // Change user password
-type ChangePasswordRequest struct {
-	CurrentPassword string `json:"current_password"`
-	NewPassword     string `json:"new_password"`
-}
-
 func (db *DBController) ChangePassword(c *gin.Context) {
+	// Change user password
+	type ChangePasswordRequest struct {
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
+	}
+
 	// Get user UUID from JWT
 	userUUIDVal, exists := c.Get("user_uuid")
 	if !exists {
