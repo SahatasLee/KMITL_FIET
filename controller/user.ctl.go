@@ -7,41 +7,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
-
-func FixUUIDFromSQLServer(b []byte) uuid.UUID {
-	if len(b) != 16 {
-		return uuid.Nil
-	}
-	// Reverse byte order for first 3 fields
-	copy := make([]byte, 16)
-	copy[0] = b[3]
-	copy[1] = b[2]
-	copy[2] = b[1]
-	copy[3] = b[0]
-
-	copy[4] = b[5]
-	copy[5] = b[4]
-
-	copy[6] = b[7]
-	copy[7] = b[6]
-
-	copy[8] = b[8]
-	copy[9] = b[9]
-	copy[10] = b[10]
-	copy[11] = b[11]
-	copy[12] = b[12]
-	copy[13] = b[13]
-	copy[14] = b[14]
-	copy[15] = b[15]
-
-	u, _ := uuid.FromBytes(copy)
-	return u
-}
 
 func (db *DBController) CreateUser(c *gin.Context) {
 	var req struct {
@@ -58,7 +29,7 @@ func (db *DBController) CreateUser(c *gin.Context) {
 	// Validate required fields manually if needed
 	if req.Email == "" || req.Password == "" {
 		fmt.Println(req.Email, req.Password)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Name, email, and password are required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email, and password are required"})
 		return
 	}
 
@@ -97,9 +68,9 @@ func (db *DBController) CreateUser(c *gin.Context) {
 
 	// Insert query with named params
 	query = `
-		INSERT INTO users (uuid, name, email, age, password_hash)
+		INSERT INTO users (uuid, email, password_hash)
 		OUTPUT INSERTED.id
-		VALUES (:uuid, :name, :email, :age, :password_hash)
+		VALUES (:uuid, :email, :password_hash)
 	`
 
 	// Prepare statement
@@ -147,7 +118,7 @@ func (db *DBController) Login(c *gin.Context) {
 
 	// Fetch user by email
 	var user model.User
-	query := "SELECT id, uuid, name, email, password_hash FROM users WHERE email = :email"
+	query := "SELECT uuid, password_hash FROM users WHERE email = :email"
 	stmt, err := db.Database.PrepareNamed(query)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Query preparation failed"})
@@ -156,21 +127,24 @@ func (db *DBController) Login(c *gin.Context) {
 	defer stmt.Close()
 
 	if err := stmt.Get(&user, map[string]interface{}{"email": req.Email}); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password."})
+		c.Error(err)
 		return
 	}
 
 	// Compare hashed password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+		c.Error(err)
 		return
 	}
 
-	uuid := FixUUIDFromSQLServer(user.UUID)
+	// uuid := FixUUIDFromSQLServer(user.UUID)
+	uuid := user.UUID
 
 	fmt.Printf("Extracted UUID from JWT: %v (%T)\n", uuid, uuid)
 	// Success response (excluding password)
-	token, err := auth.GenerateToken(uuid.String())
+	token, err := auth.GenerateToken(uuid)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Token generation failed"})
 		return
@@ -239,28 +213,53 @@ func (db *DBController) GetUserByID(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
-// Update user by ID
+// Update user by UUID from JWT
 func (db *DBController) UpdateUser(c *gin.Context) {
-	id := c.Param("id")
-
-	// Bind JSON body to struct
-	var user struct {
-		Name string `json:"name"`
-		Age  int    `json:"age"`
+	// Extract user UUID from JWT
+	userUUIDVal, exists := c.Get("user_uuid")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User UUID not found"})
+		return
 	}
-	if err := c.ShouldBindJSON(&user); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data"})
+	userUUID := userUUIDVal.(string)
+
+	// Parse incoming JSON into a map
+	var req map[string]interface{}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data", "details": err.Error()})
 		return
 	}
 
-	query := "UPDATE users SET name=:name, age=:age WHERE id=:id"
-	params := map[string]interface{}{
-		"id":   id,
-		"name": user.Name,
-		"age":  user.Age,
+	// Whitelist allowed fields
+	allowedFields := map[string]bool{
+		"name":  true,
+		"age":   true,
+		"email": true,
+		// Add more if needed
 	}
 
-	// Execute update query
+	// Build SQL SET clause
+	setClauses := []string{}
+	params := map[string]interface{}{
+		"uuid": userUUID,
+	}
+
+	for key, value := range req {
+		if allowedFields[key] {
+			setClauses = append(setClauses, fmt.Sprintf("%s = :%s", key, key))
+			params[key] = value
+		}
+	}
+
+	if len(setClauses) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No valid fields to update"})
+		return
+	}
+
+	// Always update updated_at
+	setClauses = append(setClauses, "updated_at = SYSDATETIME()")
+
+	query := fmt.Sprintf("UPDATE users SET %s WHERE uuid = :uuid", strings.Join(setClauses, ", "))
 	result, err := db.Database.NamedExec(query, params)
 	if err != nil {
 		log.Println("Update error:", err)
@@ -268,14 +267,12 @@ func (db *DBController) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	// Check if any rows were affected
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
 
-	// Send success response
 	c.JSON(http.StatusOK, gin.H{"message": "User updated successfully"})
 }
 
@@ -303,4 +300,57 @@ func (db *DBController) DeleteUserByID(c *gin.Context) {
 
 	// Send success response
 	c.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
+}
+
+// Change user password
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}
+
+func (db *DBController) ChangePassword(c *gin.Context) {
+	// Get user UUID from JWT
+	userUUIDVal, exists := c.Get("user_uuid")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	userUUID := userUUIDVal.(string)
+
+	// Parse JSON input
+	var req ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	// Fetch existing password hash
+	var storedHash string
+	err := db.Database.Get(&storedHash, "SELECT password_hash FROM users WHERE uuid = ?", userUUID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user"})
+		return
+	}
+
+	// Compare current password with stored hash
+	if err := bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(req.CurrentPassword)); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Incorrect current password"})
+		return
+	}
+
+	// Hash new password
+	newHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash new password"})
+		return
+	}
+
+	// Update password in DB
+	_, err = db.Database.Exec("UPDATE users SET password_hash = ?, updated_at = SYSDATETIME() WHERE uuid = ?", newHash, userUUID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update password"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Password changed successfully"})
 }

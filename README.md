@@ -1,5 +1,13 @@
 # KMITL_FIET
 
+TODO
+
+- [x] Login
+- [x] Register
+- [ ] Update user
+- [ ] Delete user
+- [ ] Change password
+
 ## Setup Go
 
 ```sh
@@ -100,8 +108,8 @@ CREATE USERS
 ```sh
 CREATE TABLE users (
     id INT IDENTITY(1,1) PRIMARY KEY,
-    uuid UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(), -- public identifier
-    name NVARCHAR(100) NOT NULL,
+    uuid NVARCHAR(36) NOT NULL DEFAULT CONVERT(NVARCHAR(36), NEWID()) UNIQUE, -- public identifier
+    name NVARCHAR(100),
     email NVARCHAR(100) NOT NULL UNIQUE,
     age INT CHECK (age >= 0 AND age <= 150),
     password_hash NVARCHAR(255) NOT NULL,
