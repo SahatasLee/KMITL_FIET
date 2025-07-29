@@ -7,6 +7,7 @@ import (
 	"fiet/router"
 	"net/http"
 
+	"github.com/gin-contrib/cors"
 	swaggerfiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 
@@ -33,6 +34,7 @@ func main() {
 	r := gin.Default()
 	// Trust a specific proxy (e.g., NGINX running on 10.0.0.1)
 	r.SetTrustedProxies([]string{"10.0.0.1", "192.168.1.0/24", "localhost"})
+	r.Use(cors.Default())
 	docs.SwaggerInfo.BasePath = "/api/v1"
 
 	api := r.Group("/api/v1")

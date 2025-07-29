@@ -12,7 +12,7 @@ func SetUserRoutes(router *gin.RouterGroup, db *sqlx.DB) {
 	ctls := controller.DBController{Database: db}
 
 	// Public routes
-	router.POST("/register", ctls.CreateUser)
+	router.POST("/signup", ctls.CreateUser)
 	router.POST("/login", ctls.Login)
 
 	// Protected routes with middleware
