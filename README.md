@@ -8,6 +8,7 @@ TODO
 - [ ] Delete user
 - [ ] Change password
 - [X] API Docs (gin-swagger)
+- [ ] Fix init env
 
 ## Setup Go
 

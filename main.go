@@ -34,7 +34,17 @@ func main() {
 	r := gin.Default()
 	// Trust a specific proxy (e.g., NGINX running on 10.0.0.1)
 	r.SetTrustedProxies([]string{"10.0.0.1", "192.168.1.0/24", "localhost"})
-	r.Use(cors.Default())
+	// r.Use(cors.Default())
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowCredentials: true, // 🔥 this is REQUIRED for cookies to be set
+	}))
+	// config := cors.DefaultConfig()
+	// config.AllowOrigins = append(config.AllowOrigins, "http://localhost:3000")
+	// config.Allowcredials = True
+
 	docs.SwaggerInfo.BasePath = "/api/v1"
 
 	api := r.Group("/api/v1")

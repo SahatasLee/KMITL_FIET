@@ -31,6 +31,7 @@ func DatabaseInit() *sqlx.DB {
 		}
 		log.Printf("Retries conneting database... (%d/10)", i+1)
 		time.Sleep(10 * time.Second)
+		db, err = sqlx.Connect("sqlserver", dsn)
 	}
 
 	if err != nil {

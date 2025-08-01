@@ -2,16 +2,24 @@ package auth
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/joho/godotenv"
 )
 
 var jwtSecret []byte // 🔐 Store this securely (env or config)
 
 func init() {
+	fmt.Println("JWT Secret:", jwtSecret)
+	err := godotenv.Load("dev.env")
+	if err != nil {
+		log.Println("Warning loading .env file")
+	}
 	jwtSecret = []byte(os.Getenv("JWT_SECRET"))
+	fmt.Println("JWT Secret:", jwtSecret)
 }
 
 func GenerateToken(userUUID string) (string, error) {

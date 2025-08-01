@@ -1,7 +1,9 @@
 package config
 
 import (
+	"fmt"
 	"log"
+	"os"
 
 	"github.com/joho/godotenv"
 )
@@ -12,4 +14,5 @@ func LoadConfig() {
 	if err != nil {
 		log.Println("Warning loading .env file")
 	}
+	fmt.Println("JWT secret", os.Getenv("JWT_SECRET"))
 }

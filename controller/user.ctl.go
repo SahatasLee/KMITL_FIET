@@ -172,7 +172,18 @@ func (db *DBController) Login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Token generation failed"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"token": token})
+	fmt.Println("Generated JWT token:", token)
+	c.SetCookie(
+		"token",     // name
+		token,       // value
+		3600,        // maxAge in seconds (e.g., 1 hour)
+		"/",         // path
+		"localhost", // domain — use frontend domain
+		false,       // secure (true = HTTPS only)
+		false,       // httpOnly (JS can't access it)
+	)
+	c.JSON(http.StatusOK, gin.H{"message": "Login successful"})
+	// c.JSON(http.StatusOK, gin.H{"token": token})
 }
 
 // Get all users
